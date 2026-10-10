@@ -1,0 +1,42 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unzip project
+        run: |
+          mkdir -p src
+          for z in *.zip; do unzip -o "$z" -d src; done
+          ls -la src
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        working-directory: src
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp src/app/build/outputs/apk/debug/app-debug.apk jishibu-widget.apk
+          gh release create "v${{ github.run_number }}" jishibu-widget.apk \
+            --title "記事簿 App v${{ github.run_number }}" \
+            --notes "手機上點 jishibu-widget.apk 下載並安裝。"
